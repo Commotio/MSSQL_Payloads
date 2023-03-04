@@ -6,6 +6,7 @@ using System.Linq;
 // Execute a command on ALL Linked SQL servers (only first order links as of now)
 // Usage: sqlLinked.exe -h sql01.example.com -c "dir C:\Users" 
 // Usage: sqlLinked.exe -h sql01.example.com -c "dir C:\Users" [-l or -u to impersonate login or user on the local server]
+// Local login: sqlLinked.exe -h sql01.example.com -c "dir C:\Users" [-local -user <username> -pass <password>]
 
 namespace SQL
 {
@@ -87,6 +88,9 @@ namespace SQL
             String cmd = "whoami";
             String user = "";
             String login = "";
+            bool local = false;
+            String username = "";
+            string pass = "";
 
             for (var i = 0; i < args.Length; i++)
             {
@@ -95,6 +99,9 @@ namespace SQL
                 else if (args[i] == "-c") { cmd = args[i + 1]; }
                 else if (args[i] == "-l") { login = args[i + 1]; }
                 else if (args[i] == "-u") { user = args[i + 1]; }
+                else if (args[i] == "-local") { local = true; }
+                else if (args[i] == "-user") { username = args[i + 1]; }
+                else if (args[i] == "-pass") { pass = args[i + 1]; }
             }
 
             if (sqlServer == "")
@@ -103,7 +110,17 @@ namespace SQL
                 Environment.Exit(0);
             }
 
-            String conString = "Server = " + sqlServer + "; Database = " + database + "; Integrated Security = True;";
+             String conString = "";
+
+            if (local)
+            {
+                conString = "Server = " + sqlServer + "; Database = " + database + "; Integrated Security=false; user id=" + username + "; password=" + pass + ";";
+            }
+            else 
+            {
+                conString = "Server = " + sqlServer + "; Database = " + database + "; Integrated Security = True;";
+            }
+
             SqlConnection con = new SqlConnection(conString);
 
             try
