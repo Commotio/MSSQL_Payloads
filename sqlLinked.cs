@@ -43,6 +43,14 @@ namespace SQL
 
         public static String TestLink(String host, SqlConnection con, String type)
         {
+            if (host != "")
+            {
+                String enable_rpcOut = "EXEC sp_serveroption '" + host + "', 'rpc out', 'true';";
+                SqlCommand command = new SqlCommand(enable_rpcOut, con);
+                SqlDataReader reader = command.ExecuteReader();
+                reader.Close();
+            }
+            
             String cmd = "";
             if (type == "login")
             {
