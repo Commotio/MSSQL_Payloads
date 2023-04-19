@@ -401,7 +401,7 @@ namespace SQL
             {
                 if (customQuery == "")
                 {
-                    Console.WriteLine("Please specify an exec type with -e (either '1' for xp_cmdshell or '2' for sp_OACreate)");
+                    Console.WriteLine("Please specify an exec type with -e (either '1' for xp_cmdshell, '2' for sp_OACreate, or '3' for custom assembly)");
                     Environment.Exit(0);
                 }
                 else
