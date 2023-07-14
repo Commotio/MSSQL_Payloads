@@ -1,6 +1,5 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.Data;
 using System.Data.SqlClient;
 
 // Execute arbitrary code or queries on remote SQL servers via xp_cmdshell, sp_OACreate, and a custom assembly
@@ -412,24 +411,24 @@ namespace SQL
                     reader = command.ExecuteReader();
                     reader.Read();
                     Console.WriteLine("Result of command is: ");
-                    // Call Read before accessing data.
-                    while (reader.Read())
+                    Console.WriteLine(reader[0]);
+                    if (reader.HasRows)
                     {
-                        ReadSingleRow((IDataRecord)reader);
-                    }
+                        int count = reader.FieldCount;
+                        while (reader.Read())
+                        {
 
-                    // Call Close when done reading.
+                            for (int i = 0; i < count; i++)
+                            {
+                                Console.WriteLine(reader.GetValue(i));
+                            }
+                        }
+                    }
                     reader.Close();
                 }
-                
             }
-             
 
             con.Close();
-        }
-        private static void ReadSingleRow(IDataRecord dataRecord)
-        {
-            Console.WriteLine(String.Format("{0}, {1}", dataRecord[0], dataRecord[1]));
         }
     }
 }
